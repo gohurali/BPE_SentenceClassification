@@ -3,9 +3,11 @@ import torch.nn.functional as F
 import yaml
 
 class ShallowCNN(torch.nn.Module):
-    def __init__(self, pretrained_embeddings):
+    def __init__(self,config={},pretrained_embeddings=None):
         super(ShallowCNN,self).__init__()
-        self.cfg = yaml.safe_load(open('config.yaml'))
+        #self.cfg = yaml.safe_load(open('config.yaml'))
+        self.cfg = config
+        self.num_classes = self.cfg['num_classes']
         
         # -- Build Embedding Table --
         self.pretrained_embedding_table = torch.nn.Embedding.from_pretrained(pretrained_embeddings)
@@ -57,5 +59,8 @@ class ShallowCNN(torch.nn.Module):
         if(self.cfg['if_softmax']):
             x = self.fc2(x)
             x = F.log_softmax(x,dim=1,dtype=torch.float)
+        else:
+            x = self.fc2(x)
+            x = F.sigmoid(x)
         return x
     

@@ -20,6 +20,7 @@ import torch.nn.functional as F
 import pandas as pd
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from models.architectures import ShallowCNN
+from utils.preprocessing import DataPrepper
 
 # CUDA for PyTorch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,39 +28,36 @@ if(str(device) == 'cuda'):
     print("Device state:\t", device)
     print("Device index:\t",torch.cuda.current_device())
     print("Current device:\t", torch.cuda.get_device_name(device))
+cfg = yaml.safe_load(open('config.yaml'))
+
 
 class Trainer:
-    def __init__(self):
-        self.cfg = yaml.safe_load(open('config.yaml'))
-        # Used pre-determined data split
-        self.use_default_split = True
-        
-        if(self.use_default_split):
-            self.x_train,self.y_train,self.x_test,self.y_test = self.get_trec_dataset(self.cfg['train_data_location'], use_default_split=self.use_default_split)
-                      
-            self.bpe_model, self.embeddings = self.open_bpe_vectors()
+    def __init__(self,config={},DataPrepper=None):
+        self.cfg = config
+        self.dataprepper = DataPrepper
+        self.bpe_model, self.embeddings = self.open_bpe_vectors()
 
-            self.x_train = self.bpe_model.encode_ids(self.x_train)
-            self.x_test = self.bpe_model.encode_ids(self.x_test)
-            self.x_train = pad_sequences(sequences=self.x_train,maxlen=self.cfg['pad_limit'])
-            self.x_test = pad_sequences(sequences=self.x_test, maxlen=self.cfg['pad_limit'])         
-                        
-            self.train_idx_labels = self.y_train
-            self.test_idx_labels = self.y_test
-            
+        self.x_train = self.bpe_model.encode_ids(self.dataprepper.x_train)
+        self.x_test = self.bpe_model.encode_ids(self.dataprepper.x_test)
+        self.x_train = pad_sequences(sequences=self.x_train,maxlen=self.cfg['pad_limit'])
+        self.x_test = pad_sequences(sequences=self.x_test, maxlen=self.cfg['pad_limit'])         
+        self.y_train = self.dataprepper.y_train
+        self.y_test = self.dataprepper.y_test
+
+        self.train_idx_labels = self.y_train
+        self.test_idx_labels = self.y_test
+
         if(self.cfg['if_softmax']):
             self.y_train = self.to_categorical(self.y_train, self.cfg['num_classes'])
             self.y_test = self.to_categorical(self.y_test, self.cfg['num_classes'])
-        else:
-            self.examples, self.labels = self.get_trec_dataset(self.cfg['train_data_location'], use_default_split=self.use_default_split)
-            self.examples = self.sequence_examples(self.examples)
         
         print('Train data size: x_train = {',self.x_train.shape,'} -- y_train = {',self.y_train.shape,'}')
         print('Test data size: x_test = {',self.x_test.shape,'} -- y_test = {',self.y_test.shape,'}')
 
-        self.train_dataloader,self.test_dataloader = self.create_dataloaders(train_data=(self.x_train,self.y_train),
-                                                                             test_data=(self.x_test,self.y_test)
-                                                                             )
+        self.train_dataloader,self.test_dataloader = self.create_dataloaders(
+            train_data=(self.x_train,self.y_train),
+            test_data=(self.x_test,self.y_test)
+            )
         pass
         
     def sequence_examples(self, dataset):
@@ -278,7 +276,7 @@ class Trainer:
 
     
     def build_model(self, embeddings):
-        return ShallowCNN(embeddings)
+        return ShallowCNN(self.cfg,embeddings)
     
     def train(self,train_data):
 
@@ -310,35 +308,54 @@ class Trainer:
                                                                cooldown=0, 
                                                                min_lr=0, 
                                                                eps=1e-08)
-        #loss_function = torch.nn.CrossEntropyLoss()
-        loss_function = torch.nn.NLLLoss()
+        loss_function = None
+        
+        if(self.cfg['if_softmax']):
+            #loss_function = torch.nn.CrossEntropyLoss()
+            loss_function = torch.nn.NLLLoss()
+        else:
+            loss_function = torch.nn.BCELoss()
+
         losses = []
         for epoch in range(epochs):
             total_loss = 0
             loss = 0
             for i , (examples, labels) in enumerate(train_data):
-                labels_n = labels.cpu().numpy()
-                labels_idx = np.argwhere(labels_n >0)
-                labels_idx = labels_idx.T
-                labels_idx = np.delete(labels_idx,0,0).T
-                labels_idx = np.squeeze(labels_idx,1)
-                labels_idx = torch.tensor(labels_idx,dtype=torch.int)
-                #print(labels_idx)
+                if( self.cfg['if_softmax']):
+                    labels_n = labels.cpu().numpy()
+                    labels_idx = np.argwhere(labels_n >0)
+                    labels_idx = labels_idx.T
+                    labels_idx = np.delete(labels_idx,0,0).T
+                    labels_idx = np.squeeze(labels_idx,1)
+                    labels_idx = torch.tensor(labels_idx,dtype=torch.int)
+                    #print(labels_idx)
 
-                # Transfer to GPU
-                if(str(device) == 'cuda'):
-                    examples = examples.to(device)
-                    labels = labels.to(device)
-                    labels_idx = labels_idx.to(device)
-                
-                self.model.zero_grad()
+                    # Transfer to GPU
+                    if(str(device) == 'cuda'):
+                        examples = examples.to(device)
+                        labels = labels.to(device)
+                        labels_idx = labels_idx.to(device)
+                    
+                    self.model.zero_grad()
 
-                predictions = self.model(examples.long())
-                loss = loss_function(predictions,labels_idx.long())
-                
-                loss.backward()
-                optimizer.step()
-                total_loss += loss.item()
+                    predictions = self.model(examples.long())
+                    loss = loss_function(predictions,labels_idx.long())
+                    
+                    loss.backward()
+                    optimizer.step()
+                    total_loss += loss.item()
+                else:
+                    if(str(device) == 'cuda'):
+                        examples = examples.to(device)
+                        labels = labels.to(device)
+                    self.model.zero_grad()
+
+                    predictions = self.model(examples.long())
+                    loss = loss_function(predictions.float(),labels.float())
+                    
+                    loss.backward()
+                    optimizer.step()
+                    total_loss += loss.item()
                 #break
             scheduler.step(total_loss) 
             losses.append(total_loss)
@@ -389,7 +406,9 @@ class Trainer:
         return test_loss, accuracy, all_predictions
 
 def main():
-    trainer = Trainer()
+    dp = DataPrepper(config=cfg,dataset=cfg['dataset'])
+    trainer = Trainer(config=cfg,DataPrepper=dp)
+    
     model,criterion,losses = trainer.train(train_data=trainer.train_dataloader)
     test_loss,acc,preds = trainer.test_validate(debug=True,model=trainer.model,test_data=trainer.test_dataloader,loss_fn=criterion)
     print('Test Accuracy = {}%'.format(acc))
