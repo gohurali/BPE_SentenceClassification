@@ -44,12 +44,12 @@ batch_size : 8
 #                 Train Parameters                   #
 ######################################################
 
-dataset : trec
+dataset : subj
 train_data_location : data/
 
 keras_tokenizer_loc  : models/
 
-if_softmax : True
+if_softmax : false
 num_classes : 6
 
 

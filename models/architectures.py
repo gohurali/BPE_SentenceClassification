@@ -10,13 +10,15 @@ class ShallowCNN(torch.nn.Module):
         self.num_classes = self.cfg['num_classes']
         
         # -- Build Embedding Table --
-        self.pretrained_embedding_table = torch.nn.Embedding.from_pretrained(pretrained_embeddings)
-        
-#         self.pretrained_embedding_table = torch.nn.Embedding(
-#                        num_embeddings=len(pretrained_embeddings), 
-#                        embedding_dim=self.cfg['embedding_dim']
-#         )
-#         self.pretrained_embedding_table.weight = torch.nn.Parameter(pretrained_embeddings)
+        self.pretrained_embedding_table = torch.nn.Embedding.from_pretrained(
+            embeddings=pretrained_embeddings,
+            freeze=True,
+            padding_idx=None, 
+            max_norm=None, 
+            norm_type=2.0, 
+            scale_grad_by_freq=False, 
+            sparse=False
+            )
         
         # -- Define Architecture --
         self.conv1 = torch.nn.Conv1d(in_channels=self.cfg['pad_limit'],
@@ -61,6 +63,5 @@ class ShallowCNN(torch.nn.Module):
             x = F.log_softmax(x,dim=1,dtype=torch.float)
         else:
             x = self.fc2(x)
-            x = F.sigmoid(x)
+            x = torch.sigmoid(x)
         return x
-    

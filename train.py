@@ -41,8 +41,8 @@ class Trainer:
         self.x_test = self.bpe_model.encode_ids(self.dataprepper.x_test)
         self.x_train = pad_sequences(sequences=self.x_train,maxlen=self.cfg['pad_limit'])
         self.x_test = pad_sequences(sequences=self.x_test, maxlen=self.cfg['pad_limit'])         
-        self.y_train = self.dataprepper.y_train
-        self.y_test = self.dataprepper.y_test
+        self.y_train = self.dataprepper.y_train.reshape((self.dataprepper.y_train.shape[0],1))
+        self.y_test = self.dataprepper.y_test.reshape((self.dataprepper.y_test.shape[0],1))
 
         self.train_idx_labels = self.y_train
         self.test_idx_labels = self.y_test
@@ -59,21 +59,6 @@ class Trainer:
             test_data=(self.x_test,self.y_test)
             )
         pass
-        
-    def sequence_examples(self, dataset):
-        sequenced_dataset = []
-        for example in tqdm(dataset):
-            sequenced_sentence = []
-            words = example.split()
-            for word in words:
-                if(word in self.w2e.keys()):
-                    idx = self.w2e[word][0]
-                    sequenced_sentence.append(idx)
-                else:
-                    idx = self.w2e['_unk'][0]
-                    sequenced_sentence.append(idx)
-            sequenced_dataset.append(sequenced_sentence)
-        return sequenced_dataset
       
     def create_dataloader(self, features, labels):
         print('-- Batch size ',self.cfg['batch_size'],'--')
@@ -84,154 +69,6 @@ class Trainer:
     def to_categorical(self, y, num_classes):
         """ 1-hot encodes a tensor """
         return np.eye(num_classes, dtype='uint8')[y]              
-        
-    def get_trec_dataset(self, train_data_location, use_default_split=False):
-        """Open and prepare the subjectivity dataset. Using
-        Regular expressions to clean the sentences.
-        
-        Args:
-            train_data_location - location of the data, specified in config
-        Return:
-            dataset - ndarray of each example
-            labels - array of binary labels
-        """
-        
-        if(use_default_split == False):
-            dataset = []
-            labels = []
-            for f in os.listdir(train_data_location):
-                print(f)
-                if(f == 'trec_5000_train.txt'):
-                    # Subjective Data
-                    with open(train_data_location + f, encoding = "ISO-8859-1") as subj_file:
-                        for line in subj_file:
-                            split_line = line.split(':')
-                            ques_class = split_line[0]
-                            question = split_line[1]
-                            pattern = "[^a-zA-Z.' ]"
-                            cleaned_line = re.sub(pattern,' ',question)
-                            cleaned_line = cleaned_line.lower()
-                            dataset.append(cleaned_line)
-                            if(ques_class == 'NUM'):
-                                labels.append(0)
-                            elif(ques_class == 'DESC'):
-                                labels.append(1)
-                            elif(ques_class == 'ENTY'):
-                                labels.append(2)
-                            elif(ques_class == 'HUM'):
-                                labels.append(3)
-                            elif(ques_class == 'ABBR'):
-                                labels.append(4)
-                            elif(ques_class == 'LOC'):
-                                labels.append(5)
-                elif(f == 'trec_test.txt'):
-                    # Objective Data
-                    with open(train_data_location + f, encoding = "ISO-8859-1") as obj_file:
-                        for line in obj_file:
-                            split_line = line.split(': ')
-                            ques_class = split_line[0]
-                            question = split_line[1]
-                            pattern = "[^a-zA-Z.' ]"
-                            cleaned_line = re.sub(pattern,' ',question)
-                            cleaned_line = cleaned_line.lower()
-                            dataset.append(cleaned_line)
-                            if(ques_class == 'NUM'):
-                                labels.append(0)
-                            elif(ques_class == 'DESC'):
-                                labels.append(1)
-                            elif(ques_class == 'ENTY'):
-                                labels.append(2)
-                            elif(ques_class == 'HUM'):
-                                labels.append(3)
-                            elif(ques_class == 'ABBR'):
-                                labels.append(4)
-                            elif(ques_class == 'LOC'):
-                                labels.append(5)
-            return np.array(dataset), np.array(labels)
-        elif(use_default_split==True):
-            x_train = []
-            x_test = []
-            y_train = []
-            y_test = []
-            for f in os.listdir(train_data_location):
-                print(f)
-                if(f == 'trec_5000_train.txt'):
-                    # Subjective Data
-                    with open(train_data_location + f, encoding = "ISO-8859-1") as subj_file:
-                        for line in subj_file:
-                            split_line = line.split(':')#
-                            ques_class = split_line[0]
-                            question = line.split(' ',1)[1]#split_line[1]
-                            pattern = "[^a-zA-Z.' ]"
-                            cleaned_line = re.sub(pattern,' ',question)
-                            cleaned_line = cleaned_line.lower()
-                            x_train.append(cleaned_line)
-                            if(ques_class == 'NUM'):
-                                y_train.append(0)
-                            elif(ques_class == 'DESC'):
-                                y_train.append(1)
-                            elif(ques_class == 'ENTY'):
-                                y_train.append(2)
-                            elif(ques_class == 'HUM'):
-                                y_train.append(3)
-                            elif(ques_class == 'ABBR'):
-                                y_train.append(4)
-                            elif(ques_class == 'LOC'):
-                                y_train.append(5)
-                elif(f == 'trec_test.txt'):
-                    # Objective Data
-                    with open(train_data_location + f, encoding = "ISO-8859-1") as obj_file:
-                        for line in obj_file:
-                            split_line = line.split(':')#line.split(' ',1)
-                            ques_class = split_line[0]
-                            question = line.split(' ',1)[1]#split_line[1]
-                            pattern = "[^a-zA-Z.' ]"
-                            cleaned_line = re.sub(pattern,' ',question)
-                            cleaned_line = cleaned_line.lower()
-                            x_test.append(cleaned_line)
-                            if(ques_class == 'NUM'):
-                                y_test.append(0)
-                            elif(ques_class == 'DESC'):
-                                y_test.append(1)
-                            elif(ques_class == 'ENTY'):
-                                y_test.append(2)
-                            elif(ques_class == 'HUM'):
-                                y_test.append(3)
-                            elif(ques_class == 'ABBR'):
-                                y_test.append(4)
-                            elif(ques_class == 'LOC'):
-                                y_test.append(5)
-            return x_train, y_train, x_test, y_test
-          
-    def open_pretrained(self):
-        """Getting GloVe Embeddings to be used for embedding
-        layer. Corresponding words to be feature hashed for look
-        up.
-        Returns
-            NumPy Tensor of shape (300,)
-        """
-        embeddings = []
-        glove_w2emb = {}
-        glove_embeddings_file = open(os.path.join('/content/drive/My Drive/College/Undergraduate Research/SkillEvaluation/','glove.6B.'+str(self.cfg['embedding_dim'])+'d.txt'))
-        
-        # -- Padding --
-        glove_w2emb['_pad'] = (0, None)
-        
-        # -- OOV Words --
-        unk_words = np.random.rand(self.cfg['embedding_dim'],)
-        glove_w2emb['_unk'] = (1, unk_words)
-        embeddings.append(unk_words)
-        
-        idx = 2
-        for line in tqdm(glove_embeddings_file):
-            values = line.split()
-            word = values[0]
-            coefs = np.asarray(values[1:], dtype='float32')
-            glove_w2emb[word] = (idx , coefs)
-            embeddings.append(coefs)
-            idx+=1
-        glove_embeddings_file.close()
-        return glove_w2emb, embeddings
     
     def open_bpe_vectors(self):
         en_model = BPEmb(lang='en',vs=200000,dim=100)
@@ -244,7 +81,6 @@ class Trainer:
             if(value[1] is not None):
                 table[value[0]] = value[1]
         return table
-    
     
     def split_data(self,examples,labels):
         if(self.use_default_split == False):
@@ -260,10 +96,10 @@ class Trainer:
         y_test = test_data[1]
 
         if(str(device) == 'cuda'):
-            x_train = torch.tensor(x_train).cuda()
-            y_train = torch.tensor(y_train,dtype=torch.long).cuda()
-            x_test = torch.tensor(x_test).cuda()
-            y_test = torch.tensor(y_test,dtype=torch.long).cuda()
+            x_train = torch.tensor(x_train).to(device)#.cuda()
+            y_train = torch.tensor(y_train,dtype=torch.long).to(device)#.cuda()
+            x_test = torch.tensor(x_test).to(device)#.cuda()
+            y_test = torch.tensor(y_test,dtype=torch.long).to(device)#.cuda()
         else:
             x_train = torch.tensor(x_train)
             y_train = torch.tensor(y_train,dtype=torch.long)
@@ -280,7 +116,7 @@ class Trainer:
     
     def train(self,train_data):
 
-        epochs = 100 # self.cfg['epochs']
+        epochs = 50 # self.cfg['epochs']
         learning_rate = 0.0001 #self.cfg['learning_rate'])
         
         # -- Create Model --
@@ -298,16 +134,11 @@ class Trainer:
         #                                             step_size=50,
         #                                             gamma=0.1)
 
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
-                                                               mode='min', 
-                                                               factor=0.1, 
-                                                               patience=5, 
-                                                               verbose=True, 
-                                                               threshold=0.0001, 
-                                                               threshold_mode='rel', 
-                                                               cooldown=0, 
-                                                               min_lr=0, 
-                                                               eps=1e-08)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.1,patience=5,
+            verbose=True,threshold=0.0001, threshold_mode='rel', 
+            cooldown=0,min_lr=0,eps=1e-08
+            )
         loss_function = None
         
         if(self.cfg['if_softmax']):
@@ -351,6 +182,8 @@ class Trainer:
                     self.model.zero_grad()
 
                     predictions = self.model(examples.long())
+                    if(str(device) == 'cuda'):
+                        predictions = predictions.to(device)
                     loss = loss_function(predictions.float(),labels.float())
                     
                     loss.backward()
@@ -370,39 +203,58 @@ class Trainer:
         correct = 0
         all_predictions = []
         for idx,(examples, labels) in enumerate(test_data):
+            if( self.cfg['if_softmax']):
+                labels_n = labels.cpu().numpy()
+                labels_idx = np.argwhere(labels_n >0)
+                labels_idx = labels_idx.T
+                labels_idx = np.delete(labels_idx,0,0).T
+                labels_idx = np.squeeze(labels_idx,1)
+                labels_idx = torch.tensor(labels_idx,dtype=torch.int)
+                if(str(device) == 'cuda'):
+                    examples = examples.to(device)
+                    labels = labels.to(device)
+                    labels_idx = labels_idx.to(device)
 
-            labels_n = labels.cpu().numpy()
-            labels_idx = np.argwhere(labels_n >0)
-            labels_idx = labels_idx.T
-            labels_idx = np.delete(labels_idx,0,0).T
-            labels_idx = np.squeeze(labels_idx,1)
-            labels_idx = torch.tensor(labels_idx,dtype=torch.int)
-            if(str(device) == 'cuda'):
-                examples = examples.to(device)
-                labels = labels.to(device)
-                labels_idx = labels_idx.to(device)
+                outputs = self.model.forward(examples.long())
 
-            outputs = self.model.forward(examples.long())
+                preds = []
+                for pred in outputs:
+                    #preds.append((torch.max(pred).detach(),np.argmax(pred.cpu().detach().numpy())))
+                    preds.append(np.argmax(pred.cpu().detach().numpy()))
+                preds = torch.tensor(preds,dtype=torch.int).to(device)
+                
+                all_predictions.append(outputs)
+                loss = loss_fn(outputs, labels_idx.long())
+                test_loss += loss.item()
 
-            preds = []
-            for pred in outputs:
-                #preds.append((torch.max(pred).detach(),np.argmax(pred.cpu().detach().numpy())))
-                preds.append(np.argmax(pred.cpu().detach().numpy()))
-            preds = torch.tensor(preds,dtype=torch.int).to(device)
+                correct += (preds == labels_idx).sum() 
+
+                if(debug):
+                    for ex,label,label_idx,pred,pred_idx in zip(examples,labels,labels_idx,outputs,preds):
+                        print('{}: actual = {} ---> pred = {}'.format(idx,label_idx.item(),pred_idx.item()))
+            else:
+                if(str(device) == 'cuda'):
+                    examples = examples.to(device)
+                    labels = labels.to(device)
+                outputs = self.model.forward(examples.long())
+                all_predictions.append(outputs)
+                loss = loss_fn(outputs.float(), labels.float())
+                test_loss += loss.item()
+
+
+                preds = np.round(outputs.float().cpu().detach())
+                labels = labels.float().cpu().detach()
+                correct += (preds == labels).sum()
+
+                if(debug):
+                   for ex,label,pred in zip(examples,labels,preds):
+                       print('{}: actual = {} ---> pred = {}'.format(idx,label.item(),pred.item()))
+
             
-            all_predictions.append(outputs)
-            loss = loss_fn(outputs, labels_idx.long())
-            test_loss += loss.item()
-
-            correct += (preds == labels_idx).sum() 
             # print('correct = ',correct)
             #accuracy = correct.float()/64 * 100
-
-            if(debug):
-                for ex,label,label_idx,pred,pred_idx in zip(examples,labels,labels_idx,outputs,preds):
-                    print('{}: actual = {} ---> pred = {}'.format(idx,label_idx.item(),pred_idx.item()))
-       
-        accuracy = correct.float()/500 * 100
+      
+        accuracy = correct.float()/2000 * 100
         return test_loss, accuracy, all_predictions
 
 def main():
