@@ -1,0 +1,78 @@
+######################################################
+# CONFIG FILE for Skill Evaluation Project           #
+######################################################
+
+######################################################
+#                    Word2Vec Data                   #
+######################################################
+# --- !data
+csv_data_loc : dataset/datajobposts.csv
+col_to_parse : JobDescription
+records_loc : outputs/records/
+
+# --- !word_embeddings
+use_pretrained : True
+pretrained_model_loc : models/wiki.en/wiki.en.bin
+
+gen_model : True
+
+######################################################
+#                 Data Configurations                #
+######################################################
+pad_limit : 150
+
+######################################################
+#                 SkillNet HyperParams               #
+######################################################
+# Types [shallow, deep]
+# Shallow: 1 Conv Layer
+# Deep : 3 Conv Layers
+model_type : shallow
+embedding_dim : 300
+# --- !hyperparams
+epochs : 2
+
+optimizer : adam
+learning_rate : 0.0001 # 0.0001
+beta1 : 0.9
+beta2 : 0.999
+epsilon: 10e-8
+
+batch_size : 8
+
+######################################################
+#                 Train Parameters                   #
+######################################################
+
+train_data_location : data/trec/
+keras_tokenizer_loc  : models/
+
+if_softmax : true
+num_classes : 6
+
+
+# 30% Split of the data
+# -------------------
+# 70% for training
+# 20% for testing
+# 10% for validation
+train_test_split_ratio : 0.2
+validation_split_ratio : 0.0 # 0.2
+
+early_stopping : true
+
+using_cv : false
+cross_validation_k : 10
+
+# Caution -- tensorboard summaries are heavy files!
+create_logs : false
+logs_loc : /outputs/tensorboard_logs/
+create_checkpoints : false
+checkpoint_loc : models/skillnet_checkpoints/
+
+######################################################
+#              Inference Parameters                  #
+######################################################
+
+model_loc : models/skillnet_checkpoints/initial_architecture/
+use_file_input : yaml
