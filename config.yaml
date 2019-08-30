@@ -1,20 +1,6 @@
 ######################################################
-# CONFIG FILE for Skill Evaluation Project           #
+# BPE Neural Network Parameter Config File           #
 ######################################################
-
-######################################################
-#                    Word2Vec Data                   #
-######################################################
-# --- !data
-csv_data_loc : dataset/datajobposts.csv
-col_to_parse : JobDescription
-records_loc : outputs/records/
-
-# --- !word_embeddings
-use_pretrained : True
-pretrained_model_loc : models/wiki.en/wiki.en.bin
-
-gen_model : True
 
 ######################################################
 #                 Data Configurations                #
@@ -22,7 +8,7 @@ gen_model : True
 pad_limit : 150
 
 ######################################################
-#                 SkillNet HyperParams               #
+#                  HyperParams                       #
 ######################################################
 # Types [shallow, deep]
 # Shallow: 1 Conv Layer
@@ -70,11 +56,11 @@ cross_validation_k : 10
 create_logs : false
 logs_loc : /outputs/tensorboard_logs/
 create_checkpoints : false
-checkpoint_loc : models/skillnet_checkpoints/
+checkpoint_loc : models/
 
 ######################################################
 #              Inference Parameters                  #
 ######################################################
 
-model_loc : models/skillnet_checkpoints/initial_architecture/
+model_loc : models/
 use_file_input : yaml
