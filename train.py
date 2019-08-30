@@ -69,9 +69,9 @@ class Trainer:
     def to_categorical(self, y, num_classes):
         """ 1-hot encodes a tensor """
         return np.eye(num_classes, dtype='uint8')[y]              
-    
+        
     def open_bpe_vectors(self):
-        en_model = BPEmb(lang='en',vs=200000,dim=100)
+        en_model = BPEmb(lang='en',vs=200000,dim=300)
         return en_model, en_model.vectors
         
     
@@ -116,7 +116,7 @@ class Trainer:
     
     def train(self,train_data):
 
-        epochs = 50 # self.cfg['epochs']
+        epochs = 30 # self.cfg['epochs']
         learning_rate = 0.0001 #self.cfg['learning_rate'])
         
         # -- Create Model --
@@ -139,19 +139,22 @@ class Trainer:
             verbose=True,threshold=0.0001, threshold_mode='rel', 
             cooldown=0,min_lr=0,eps=1e-08
             )
-        loss_function = None
+        self.loss_function = None
         
         if(self.cfg['if_softmax']):
-            #loss_function = torch.nn.CrossEntropyLoss()
-            loss_function = torch.nn.NLLLoss()
+            #self.loss_function = torch.nn.CrossEntropyLoss()
+            self.loss_function = torch.nn.NLLLoss()
         else:
-            loss_function = torch.nn.BCELoss()
+            self.loss_function = torch.nn.BCELoss()
 
+        
+        accuracy = 0
         losses = []
         for epoch in range(epochs):
             total_loss = 0
             loss = 0
-            for i , (examples, labels) in enumerate(train_data):
+            correct = 0
+            for i , (examples, labels) in tqdm(enumerate(train_data)):
                 if( self.cfg['if_softmax']):
                     labels_n = labels.cpu().numpy()
                     labels_idx = np.argwhere(labels_n >0)
@@ -170,7 +173,7 @@ class Trainer:
                     self.model.zero_grad()
 
                     predictions = self.model(examples.long())
-                    loss = loss_function(predictions,labels_idx.long())
+                    loss = self.loss_function(predictions,labels_idx.long())
                     
                     loss.backward()
                     optimizer.step()
@@ -184,7 +187,13 @@ class Trainer:
                     predictions = self.model(examples.long())
                     if(str(device) == 'cuda'):
                         predictions = predictions.to(device)
-                    loss = loss_function(predictions.float(),labels.float())
+                    loss = self.loss_function(predictions.float(),labels.float())
+
+                    #preds = np.round(predictions.float().cpu().detach())
+                    preds = torch.round(predictions.float().detach())
+                    labels = labels.float().detach()
+                    #labels = labels.float().cpu().detach()
+                    correct += (preds == labels).sum()
                     
                     loss.backward()
                     optimizer.step()
@@ -193,12 +202,41 @@ class Trainer:
             scheduler.step(total_loss) 
             losses.append(total_loss)
             #break
-            print('Epoch {} ----> loss={}'.format(epoch,total_loss))
+            accuracy = correct.float()/self.x_train.shape[0] * 100
+            #print('Epoch {} ----> loss={} accuracy={}'.format(epoch,total_loss,accuracy))
+            print(f'Epoch {epoch} ----> loss={total_loss:.5f} accuracy={accuracy:.5f}')
+            if(torch.cuda.memory_allocated(device)/1000000000 > 10.5):
+                print('GPU Memory Occupied: {}'.format(torch.cuda.memory_allocated(device)/1000000000))
             #print('Epoch {} Learning_Rate{} ----> loss={}'.format(epoch,scheduler.get_lr(),total_loss))
-            print('==========================================================')
-        return self.model, loss_function, losses
+            print('=====================================================================================================')
+        return self.model, self.loss_function, losses
+    
+    def save_model(self):
+        torch.save(self.model.state_dict(),self.cfg['save_location']+'pt_'+self.cfg['dataset']+'.pt')
+    
+    def checkpoint_model(self):
+        chkpt = {
+            "model_state_dict" : self.model.state_dict(),
+            "optimizer_state_dict" : self.loss_function.state_dict()
+        }
+        torch.save(chkpt,self.cfg['save_location']+'pt_'+self.cfg['dataset']+'.chkpt')
     
     def test_validate(self,debug=False,model=None,test_data=[],loss_fn=None):
+        if(model == None and loss_fn == None):
+            if(self.cfg['if_softmax']):
+                #self.loss_function = torch.nn.CrossEntropyLoss()
+                loss_fn = torch.nn.NLLLoss()
+            else:
+                loss_fn = torch.nn.BCELoss()
+            self.model = ShallowCNN(self.cfg,torch.tensor(self.embeddings))
+            #self.model.load_state_dict(torch.load(self.cfg['save_location']+'pt_'+self.cfg['dataset']+'.chkpt'))
+            checkpoint = torch.load(self.cfg['save_location']+'pt_'+self.cfg['dataset']+'.chkpt')
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            loss_fn.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.model.eval()
+
+            if(str(device) == 'cuda'):
+                self.model.to(device)
         test_loss = 0
         correct = 0
         all_predictions = []
@@ -249,12 +287,11 @@ class Trainer:
                 if(debug):
                    for ex,label,pred in zip(examples,labels,preds):
                        print('{}: actual = {} ---> pred = {}'.format(idx,label.item(),pred.item()))
-
             
             # print('correct = ',correct)
             #accuracy = correct.float()/64 * 100
       
-        accuracy = correct.float()/2000 * 100
+        accuracy = correct.float()/self.x_test.shape[0] * 100
         return test_loss, accuracy, all_predictions
 
 def main():

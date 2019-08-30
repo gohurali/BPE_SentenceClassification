@@ -52,11 +52,7 @@ early_stopping : true
 using_cv : false
 cross_validation_k : 10
 
-# Caution -- tensorboard summaries are heavy files!
-create_logs : false
-logs_loc : /outputs/tensorboard_logs/
-create_checkpoints : false
-checkpoint_loc : models/
+save_location : checkpoints/
 
 ######################################################
 #              Inference Parameters                  #
