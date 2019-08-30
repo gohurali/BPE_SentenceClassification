@@ -147,7 +147,6 @@ class Trainer:
         else:
             self.loss_function = torch.nn.BCELoss()
 
-        
         accuracy = 0
         losses = []
         for epoch in range(epochs):
@@ -280,8 +279,8 @@ class Trainer:
                 test_loss += loss.item()
 
 
-                preds = np.round(outputs.float().cpu().detach())
-                labels = labels.float().cpu().detach()
+                preds = torch.round(predictions.float().detach())
+                labels = labels.float().detach()
                 correct += (preds == labels).sum()
 
                 if(debug):
@@ -299,7 +298,19 @@ def main():
     trainer = Trainer(config=cfg,DataPrepper=dp)
     
     model,criterion,losses = trainer.train(train_data=trainer.train_dataloader)
-    test_loss,acc,preds = trainer.test_validate(debug=True,model=trainer.model,test_data=trainer.test_dataloader,loss_fn=criterion)
+    trainer.checkpoint_model()
+
+    # -- Clear Memory --
+    del model
+    del criterion
+    del trainer.model
+    del trainer.loss_function
+
+    test_loss,acc,preds = trainer.test_validate(debug=False,
+                                                model=None,
+                                                test_data=trainer.test_dataloader,
+                                                loss_fn=None
+                                                )
     print('Test Accuracy = {}%'.format(acc))
 
 if __name__ == '__main__':
