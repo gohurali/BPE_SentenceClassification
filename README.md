@@ -1,4 +1,4 @@
-# Byte Pair Encoding Embeddings for Convolutional Neural Networks
+# Byte Pair Encoding Embeddings For Sentence Classification
 Using Pre-trained byte pair encoding embeddings and ConvNets for Sentence Classification
 
 ## Dependencies
