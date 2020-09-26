@@ -10,6 +10,6 @@ PyYAML==5.1
 requests==2.22.0
 scikit-learn==0.19.2
 tensorboard==1.14.0
-tensorflow==1.14.0
+tensorflow==1.15.4
 torch==1.1.0
 tqdm==4.28.1
